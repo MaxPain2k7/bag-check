@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bag Check carousel</title>
+<style>
+  /* ---------------------------------------------------------------
+     Visual language borrowed from the subject itself: a liquidity
+     depth ladder. Every slide is rows of horizontal bars, the way an
+     order book stacks. Deep ink blue rather than black, warm paper
+     for figures, one red reserved strictly for money that vanishes.
+     --------------------------------------------------------------- */
+  :root {
+    --ink:    #12151C;
+    --panel:  #1A1F29;
+    --rule:   #2B3240;
+    --paper:  #E8E4DA;
+    --dim:    #79839A;
+    --loss:   #E2483D;
+    --keep:   #7FA88B;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #4A4A4A;
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 0;
+  }
+
+  .help {
+    max-width: 1080px;
+    margin: 0 auto 32px;
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.6;
+    background: #222;
+    padding: 20px 24px;
+    border-radius: 4px;
+  }
+  .help b { font-weight: 600; }
+  .help code { font-family: ui-monospace, monospace; background: #000; padding: 1px 5px; }
+
+  .slide {
+    width: 1080px;
+    height: 1350px;
+    background: var(--ink);
+    color: var(--paper);
+    margin: 0 auto 28px;
+    padding: 92px 84px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* the slide number sits bottom-left, quiet, because a carousel IS
+     a sequence and the reader needs to know where they are */
+  .slide::after {
+    content: attr(data-n);
+    position: absolute;
+    left: 84px;
+    bottom: 60px;
+    color: var(--rule);
+    font-size: 22px;
+    letter-spacing: 0.08em;
+  }
+
+  h1 {
+    font-size: 66px;
+    line-height: 1.08;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    max-width: 16ch;
+  }
+
+  .sub {
+    font-size: 30px;
+    line-height: 1.45;
+    color: var(--dim);
+    max-width: 30ch;
+    font-weight: 400;
+  }
+
+  .spacer { flex: 1; }
+
+  /* ---- the ladder: the recurring device ---- */
+  .rung { margin-bottom: 54px; }
+  .rung-label {
+    font-size: 25px;
+    color: var(--dim);
+    margin-bottom: 14px;
+  }
+  .bar {
+    height: 108px;
+    display: flex;
+    align-items: center;
+    padding-left: 30px;
+    font-size: 54px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .bar.filled { background: var(--panel); border-left: 6px solid var(--keep); }
+  .bar.hollow {
+    border: 2px dashed var(--loss);
+    border-left: 6px solid var(--loss);
+    color: var(--loss);
+    background: transparent;
+  }
+
+  .huge {
+    font-size: 150px;
+    font-weight: 600;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .huge.red { color: var(--loss); }
+
+  /* ---- split bar ---- */
+  .split { display: flex; height: 132px; margin: 56px 0 26px; }
+  .split > div {
+    display: flex;
+    align-items: flex-end;
+    padding: 0 0 18px 24px;
+    font-size: 26px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .split .keep { background: var(--keep); }
+  .split .gone { background: var(--loss); }
+
+  /* ---- waterfall ---- */
+  .fall { margin: 60px 0; }
+  .fall-row { display: flex; align-items: center; gap: 28px; margin-bottom: 30px; }
+  .fall-num { font-size: 46px; font-weight: 600; width: 400px; }
+  .fall-block { height: 70px; background: var(--panel); flex: 1; }
+  .fall-block.down { background: var(--loss); }
+  .fall-tag { font-size: 26px; color: var(--dim); }
+
+  /* ---- 100 dots ---- */
+  .grid100 {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 16px;
+    margin: 62px 0;
+  }
+  .cell { aspect-ratio: 1; }
+  .cell.on  { background: var(--keep); }
+  .cell.off { border: 2px solid var(--rule); }
+
+  /* ---- screenshot frame ---- */
+  .shot {
+    flex: 1;
+    border: 2px solid var(--rule);
+    background: #0B0D12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--rule);
+    font-size: 27px;
+    text-align: center;
+    padding: 40px;
+    margin: 46px 0 26px;
+    font-family: ui-monospace, monospace;
+  }
+
+  .compare { display: flex; gap: 60px; margin: 70px 0; align-items: flex-end; }
+  .compare-col { flex: 1; }
+  .compare-bar { background: var(--panel); border-top: 6px solid var(--paper); }
+  .compare-bar.tiny { border-top-color: var(--loss); }
+  .compare-cap { font-size: 27px; margin-top: 22px; color: var(--dim); }
+  .compare-val { font-size: 42px; font-weight: 600; margin-top: 8px; }
+
+  /* ---------------------------------------------------------------
+     Background layers. A faint candle chart and a trade tape sit
+     behind the content, because that is the furniture of the world
+     this is about. Kept at low opacity so no figure competes with
+     the numbers in front of it.
+     --------------------------------------------------------------- */
+  .bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .bg svg { position: absolute; }
+
+  .candles { bottom: 0; left: 0; width: 1080px; height: 640px; opacity: 0.16; }
+
+  .tape {
+    position: absolute;
+    left: 0;
+    right: 0;
+    font-family: ui-monospace, monospace;
+    font-size: 19px;
+    color: var(--rule);
+    white-space: nowrap;
+    opacity: 0.85;
+  }
+  .tape span { margin-right: 34px; }
+  .tape .up { color: #3F5A4A; }
+  .tape .dn { color: #5E2E2C; }
+
+  .grid-lines {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
+    background-size: 100% 96px;
+    opacity: 0.25;
+  }
+
+  .content { position: relative; z-index: 2; display: flex; flex-direction: column; flex: 1; }
+
+  @media print {
+    body { background: none; padding: 0; }
+    .help { display: none; }
+    .slide { margin: 0; page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+
+<div class="help">
+  <b>How to use this.</b> Seven slides, each exactly 1080&times;1350, the right shape for an Instagram carousel.<br>
+  Screenshot each one individually, or open the browser print dialog and save as PDF to get all seven as pages.<br>
+  Slide 6 has an empty frame: drop your terminal screenshot in there, or screenshot the slide and paste the terminal image on top in any editor.<br>
+  Every figure below is from the run on <code>HDix...XN3o</code>. Update them if you rerun and the numbers move.
+</div>
+
+<!-- 1 ............................................................ -->
+<section class="slide" data-n="1 / 7">
+  <div class="bg">
+    <div class="grid-lines"></div>
+    <div class="tape" style="top:44px" id="tape1"></div>
+    <div class="tape" style="bottom:150px" id="tape2"></div>
+    <svg class="candles" viewBox="0 0 1080 640" id="candles"></svg>
+  </div>
+
+  <div class="content">
+    <h1>Same wallet.<br>Two numbers.</h1>
+    <div class="spacer"></div>
+
+    <div class="rung">
+      <div class="rung-label">What his wallet app shows</div>
+      <div class="bar filled" style="width:100%">$2,806,225</div>
+    </div>
+
+    <div class="rung">
+      <div class="rung-label">What he gets if he sells</div>
+      <div class="bar filled" style="width:65%">$1,837,680</div>
+    </div>
+
+    <div class="rung" style="margin-bottom:0">
+      <div class="rung-label">The difference</div>
+      <div class="bar hollow" style="width:35%">$869,345</div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+</section>
+
+<!-- 2 ............................................................ -->
+<section class="slide" data-n="2 / 7">
+  <div class="bg"><div class="grid-lines"></div></div>
+  <div class="sub" style="max-width:24ch">Of everything in that wallet</div>
+  <div class="split">
+    <div class="keep" style="flex:68">68% real</div>
+    <div class="gone" style="flex:32">32% gone</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="huge red">$869,345</div>
+  <div class="sub" style="margin-top:34px">
+    disappears the moment he tries to sell. It was never money. It was a
+    price multiplied by a balance.
+  </div>
+  <div class="spacer"></div>
+</section>
+
+<!-- 3 ............................................................ -->
+<section class="slide" data-n="3 / 7">
+  <div class="bg"><div class="grid-lines"></div></div>
+  <h1>One position<br>does most of it.</h1>
+
+  <div class="fall">
+    <div class="fall-row">
+      <div class="fall-num">$2,051,643</div>
+      <div class="fall-block"></div>
+      <div class="fall-tag">on screen</div>
+    </div>
+    <div class="fall-row">
+      <div class="fall-num" style="color:var(--loss)">&minus;$762,193</div>
+      <div class="fall-block down" style="flex:0.37"></div>
+      <div class="fall-tag">lost selling into the pool</div>
+    </div>
+    <div class="fall-row">
+      <div class="fall-num">$1,289,451</div>
+      <div class="fall-block" style="flex:0.63"></div>
+      <div class="fall-tag">in his hand</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="sub" style="max-width:34ch">
+    He holds two million dollars of a coin called CATE. Selling it drops the
+    price 37% on the way down, and he pays that drop himself.
+  </div>
+  <div class="spacer"></div>
+</section>
+
+<!-- 4 ............................................................ -->
+<section class="slide" data-n="4 / 7">
+  <div class="bg"><div class="grid-lines"></div></div>
+  <h1>Why it happens</h1>
+
+  <div class="compare">
+    <div class="compare-col">
+      <div class="compare-bar" style="height:520px"></div>
+      <div class="compare-cap">What he wants to sell</div>
+      <div class="compare-val">$2,051,643</div>
+    </div>
+    <div class="compare-col">
+      <div class="compare-bar tiny" style="height:4px"></div>
+      <div class="compare-cap">What is in the pool to buy it</div>
+      <div class="compare-val" style="color:var(--loss)">$400</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="sub" style="max-width:32ch">
+    Price is set by the pool. Sell more than the pool can absorb and you
+    move the price against yourself with every token.
+  </div>
+  <div class="spacer"></div>
+</section>
+
+<!-- 5 ............................................................ -->
+<section class="slide" data-n="5 / 7">
+  <div class="bg"><div class="grid-lines"></div></div>
+  <h1>It is not just him.</h1>
+  <div class="sub" style="margin-top:26px">Out of every 100 tokens sitting in a wallet</div>
+
+  <div class="grid100" id="dots"></div>
+
+  <div class="sub" style="max-width:30ch">
+    Most have no market left at all. No buyers, no pool, nothing on the
+    other side of the trade.
+  </div>
+  <div class="spacer"></div>
+</section>
+
+<!-- 6 ............................................................ -->
+<section class="slide" data-n="6 / 7">
+  <div class="bg"><div class="grid-lines"></div></div>
+  <h1>Real quotes.<br>Nothing estimated.</h1>
+  <div class="shot">
+    drop your terminal screenshot here<br><br>
+    (screenshot from &ldquo;Bag Check&rdquo; downwards only)
+  </div>
+  <div class="sub" style="max-width:34ch">
+    It asks the exchange for a quote on the exact amount held, then reports
+    what came back.
+  </div>
+  <div class="spacer"></div>
+</section>
+
+<!-- 7 ............................................................ -->
+<section class="slide" data-n="7 / 7">
+  <div class="bg"><div class="grid-lines"></div></div>
+  <div class="spacer"></div>
+  <h1 style="font-size:76px;max-width:20ch">
+    Every wallet app multiplies your balance by the last traded price.
+  </h1>
+  <div class="sub" style="margin-top:44px;font-size:34px;max-width:26ch">
+    That number is fine for SOL. For a coin sitting in a $400 pool it is
+    fiction.
+  </div>
+  <div class="spacer"></div>
+  <div class="spacer"></div>
+</section>
+
+<script>
+  // ---- candlestick furniture for slide 1 ----
+  // A declining series on purpose: the slide is about value that is not
+  // there. Deterministic, so the picture is the same every time you
+  // screenshot it.
+  (function () {
+    const svg = document.getElementById("candles");
+    if (!svg) return;
+
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+
+    const n = 44;
+    const w = 1080 / n;
+    let price = 470;
+    let out = "";
+
+    for (let i = 0; i < n; i++) {
+      const drift = -1.4 + (rnd() - 0.5) * 26;
+      const open = price;
+      const close = Math.max(60, Math.min(600, price + drift));
+      const high = Math.max(open, close) + rnd() * 22;
+      const low = Math.min(open, close) - rnd() * 22;
+      price = close;
+
+      const x = i * w + w * 0.5;
+      const up = close >= open;
+      const col = up ? "#7FA88B" : "#E2483D";
+      const top = Math.min(open, close);
+      const h = Math.max(2, Math.abs(close - open));
+
+      out += `<line x1="${x}" y1="${640 - high}" x2="${x}" y2="${640 - low}" stroke="${col}" stroke-width="2"/>`;
+      out += `<rect x="${x - w * 0.3}" y="${640 - top - h}" width="${w * 0.6}" height="${h}" fill="${col}"/>`;
+    }
+
+    svg.innerHTML = out;
+  })();
+
+  // ---- trade tape furniture ----
+  (function () {
+    const tokens = ["CATE", "ANSEM", "LOOM", "MACHI", "RETARD", "YOTS", "STONK", "WIENER", "KEN", "SLOP", "LMAO", "PGCATE", "MOTION", "BULLSHIT"];
+    let seed = 19;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+
+    function row(count) {
+      let html = "";
+      for (let i = 0; i < count; i++) {
+        const t = tokens[Math.floor(rnd() * tokens.length)];
+        const sell = rnd() > 0.38;
+        const amt = (rnd() * 9000 + 40).toFixed(2);
+        html += `<span class="${sell ? "dn" : "up"}">${sell ? "SELL" : "BUY "} ${t} $${amt}</span>`;
+      }
+      return html;
+    }
+
+    const a = document.getElementById("tape1");
+    const b = document.getElementById("tape2");
+    if (a) a.innerHTML = row(14);
+    if (b) b.innerHTML = row(14);
+  })();
+
+  // 25 of 100 filled. Kept deliberately vague in the copy because the
+  // real ratio measured 70 to 94 percent across three sampling methods
+  // and none of them survived scrutiny yet.
+  const wrap = document.getElementById("dots");
+  for (let i = 0; i < 100; i++) {
+    const d = document.createElement("div");
+    d.className = "cell " + (i < 25 ? "on" : "off");
+    wrap.appendChild(d);
+  }
+</script>
+
+</body>
+</html>

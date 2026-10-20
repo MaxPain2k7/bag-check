@@ -1,0 +1,16 @@
+# keys — never commit these
+.env
+.env.*
+*.key
+run.bat
+run.sh
+
+# calibration output contains sampled wallet addresses
+calibration-*.json
+
+node_modules/
+package-lock.json
+
+.DS_Store
+Thumbs.db
+*.log
